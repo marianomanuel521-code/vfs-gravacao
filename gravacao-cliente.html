@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VFS — Gravação Facial</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --border: #1e293b;
+    --accent: #3b82f6;
+    --accent2: #06b6d4;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text: #f1f5f9;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    background-image: radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.08) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.06) 0%, transparent 50%);
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+    animation: fadeDown 0.6s ease;
+  }
+
+  .logo {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--text), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 300;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 16px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ID input */
+  .input-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    width: 100%;
+    padding: 14px;
+    font-size: 14px;
+    margin-top: 12px;
+    border-radius: 12px;
+  }
+  .btn-danger:hover { background: #dc2626; }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+    width: 100%;
+    padding: 14px;
+    font-size: 14px;
+    margin-top: 12px;
+    border-radius: 12px;
+  }
+  .btn-success:hover { background: #059669; }
+
+  /* Camera */
+  .camera-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  #video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* Face guide oval */
+  .face-guide {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 55%; aspect-ratio: 3/4;
+    border: 2px dashed rgba(59,130,246,0.6);
+    border-radius: 50%;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: rgba(59,130,246,0.6); }
+    50% { border-color: rgba(6,182,212,0.9); }
+  }
+
+  .rec-indicator {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.7);
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+  }
+
+  .rec-indicator.active { display: flex; }
+
+  .rec-dot {
+    width: 8px; height: 8px;
+    background: var(--danger);
+    border-radius: 50%;
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .timer-display {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(0,0,0,0.7);
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    display: none;
+  }
+
+  .timer-display.active { display: block; }
+
+  /* Steps */
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    transition: all 0.3s;
+  }
+
+  .step-item.active {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.08);
+  }
+
+  .step-item.done {
+    border-color: var(--success);
+    background: rgba(16,185,129,0.08);
+    opacity: 0.7;
+  }
+
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .step-item.active .step-num { background: var(--accent); }
+  .step-item.done .step-num { background: var(--success); }
+
+  .step-text { flex: 1; }
+  .step-duration {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--border);
+    border-radius: 99px;
+    height: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* Status messages */
+  .status-msg {
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  .status-msg.show { display: block; }
+  .status-msg.info { background: rgba(59,130,246,0.15); color: var(--accent2); border: 1px solid rgba(59,130,246,0.3); }
+  .status-msg.success { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+  .status-msg.error { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+
+  /* Upload progress */
+  .upload-section { display: none; }
+  .upload-section.show { display: block; }
+
+  .upload-bar-wrap {
+    background: var(--border);
+    border-radius: 99px;
+    height: 8px;
+    margin: 12px 0;
+    overflow: hidden;
+  }
+
+  .upload-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .upload-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .hidden { display: none !important; }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .complete-icon {
+    font-size: 48px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .id-badge {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent2);
+    text-align: center;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">VFS Manager</div>
+  <h1>Gravação Facial</h1>
+  <p class="subtitle">Siga as instruções para gravar o seu vídeo</p>
+</div>
+
+<!-- PASSO 0: Inserir ID -->
+<div class="card" id="card-id">
+  <div class="card-title">Identificação</div>
+  <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+    Insira o código que recebeu do técnico
+  </p>
+  <div class="input-group">
+    <input type="text" id="cliente-id" placeholder="Ex: CLI001" maxlength="20">
+    <button class="btn btn-primary" onclick="iniciarSessao()">Entrar</button>
+  </div>
+  <div class="status-msg" id="msg-id"></div>
+</div>
+
+<!-- PASSO 1: Câmara + Gravação -->
+<div class="card hidden" id="card-gravacao">
+  <div class="card-title">Gravação ao Vivo</div>
+
+  <div class="camera-wrap">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="camera-overlay">
+      <div class="face-guide"></div>
+      <div class="rec-indicator" id="rec-ind">
+        <div class="rec-dot"></div>
+        <span>REC</span>
+      </div>
+      <div class="timer-display" id="timer-disp">00:00</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+
+  <div class="steps-list" id="steps-list">
+    <div class="step-item" id="step-0">
+      <div class="step-num">1</div>
+      <div class="step-text">👁 Frente — olhe para a câmara, fique parado</div>
+      <div class="step-duration">5s</div>
+    </div>
+    <div class="step-item" id="step-1">
+      <div class="step-num">2</div>
+      <div class="step-text">😊 Sorriso natural — frente</div>
+      <div class="step-duration">4s</div>
+    </div>
+    <div class="step-item" id="step-2">
+      <div class="step-num">3</div>
+      <div class="step-text">← Vire lentamente para a ESQUERDA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-3">
+      <div class="step-num">4</div>
+      <div class="step-text">→ Vire lentamente para a DIREITA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-4">
+      <div class="step-num">5</div>
+      <div class="step-text">↑ Incline a cabeça para CIMA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-5">
+      <div class="step-num">6</div>
+      <div class="step-text">↓ Incline a cabeça para BAIXO</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-6">
+      <div class="step-num">7</div>
+      <div class="step-text">↖ Diagonal CIMA-ESQUERDA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-7">
+      <div class="step-num">8</div>
+      <div class="step-text">↗ Diagonal CIMA-DIREITA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-8">
+      <div class="step-num">9</div>
+      <div class="step-text">↙ Diagonal BAIXO-ESQUERDA</div>
+      <div class="step-duration">3s</div>
+    </div>
+    <div class="step-item" id="step-9">
+      <div class="step-num">10</div>
+      <div class="step-text">↘ Diagonal BAIXO-DIREITA</div>
+      <div class="step-duration">3s</div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="msg-gravacao"></div>
+
+  <button class="btn btn-danger" id="btn-gravar" onclick="iniciarGravacao()">
+    ⏺ Iniciar Gravação
+  </button>
+</div>
+
+<!-- PASSO 2: Upload -->
+<div class="card hidden" id="card-upload">
+  <div class="card-title">Envio do Vídeo</div>
+
+  <div class="status-msg show info" id="msg-upload-info">
+    A gravação foi concluída com sucesso. Prima o botão para enviar.
+  </div>
+
+  <div class="upload-section" id="upload-section">
+    <div class="upload-info">
+      <span id="upload-label">A enviar...</span>
+      <span id="upload-pct">0%</span>
+    </div>
+    <div class="upload-bar-wrap">
+      <div class="upload-bar" id="upload-bar"></div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="msg-upload"></div>
+
+  <button class="btn btn-success" id="btn-enviar" onclick="enviarVideo()">
+    ☁ Enviar Vídeo
+  </button>
+</div>
+
+<!-- PASSO 3: Concluído -->
+<div class="card hidden" id="card-done">
+  <div class="complete-icon">✅</div>
+  <div style="text-align:center;">
+    <h2 style="font-size:18px; margin-bottom:8px;">Vídeo enviado!</h2>
+    <p style="font-size:13px; color:var(--muted);">
+      O técnico irá processar o seu agendamento em breve.
+    </p>
+    <div class="id-badge" id="done-id"></div>
+    <p style="font-size:12px; color:var(--muted); margin-top:16px;">
+      Pode fechar esta página.
+    </p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ntvvbstbydbuhsucnlck.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x4n8ZYcj-mt7j8CUjMlw_C818mNi4';
+
+let clienteId = '';
+let mediaStream = null;
+let mediaRecorder = null;
+let chunks = [];
+let gravacaoBlob = null;
+let timerInterval = null;
+let stepInterval = null;
+let segundos = 0;
+
+const steps = [
+  { texto: '👁 Frente — fique parado, olhe para a câmara', dur: 5000 },
+  { texto: '😊 Sorriso natural — frente', dur: 4000 },
+  { texto: '← Vire para a ESQUERDA devagar', dur: 3000 },
+  { texto: '→ Vire para a DIREITA devagar', dur: 3000 },
+  { texto: '↑ Cabeça para CIMA', dur: 3000 },
+  { texto: '↓ Cabeça para BAIXO', dur: 3000 },
+  { texto: '↖ Diagonal CIMA-ESQUERDA', dur: 3000 },
+  { texto: '↗ Diagonal CIMA-DIREITA', dur: 3000 },
+  { texto: '↙ Diagonal BAIXO-ESQUERDA', dur: 3000 },
+  { texto: '↘ Diagonal BAIXO-DIREITA', dur: 3000 },
+];
+const totalDur = steps.reduce((a, s) => a + s.dur, 0);
+
+function showMsg(id, msg, tipo) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `status-msg show ${tipo}`;
+}
+
+function hideMsg(id) {
+  document.getElementById(id).className = 'status-msg';
+}
+
+function iniciarSessao() {
+  const val = document.getElementById('cliente-id').value.trim().toUpperCase();
+  if (!val) { showMsg('msg-id', 'Por favor insira o seu código.', 'error'); return; }
+  clienteId = val;
+
+  document.getElementById('card-id').classList.add('hidden');
+  document.getElementById('card-gravacao').classList.remove('hidden');
+
+  // Pedir acesso à câmara
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
+    .then(stream => {
+      mediaStream = stream;
+      document.getElementById('video').srcObject = stream;
+    })
+    .catch(err => {
+      document.getElementById('card-gravacao').classList.add('hidden');
+      document.getElementById('card-id').classList.remove('hidden');
+      showMsg('msg-id', 'Erro ao aceder à câmara: ' + err.message, 'error');
+    });
+}
+
+function iniciarGravacao() {
+  if (!mediaStream) return;
+  chunks = [];
+  document.getElementById('btn-gravar').disabled = true;
+  document.getElementById('btn-gravar').textContent = '⏳ A gravar...';
+
+  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+    ? 'video/webm;codecs=vp9'
+    : 'video/webm';
+
+  mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    gravacaoBlob = new Blob(chunks, { type: 'video/webm' });
+    finalizarGravacao();
+  };
+  mediaRecorder.start(100);
+
+  // Timer
+  segundos = 0;
+  document.getElementById('rec-ind').classList.add('active');
+  document.getElementById('timer-disp').classList.add('active');
+  timerInterval = setInterval(() => {
+    segundos++;
+    const m = String(Math.floor(segundos/60)).padStart(2,'0');
+    const s = String(segundos%60).padStart(2,'0');
+    document.getElementById('timer-disp').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Steps
+  let stepIdx = 0;
+  let elapsed = 0;
+
+  function activateStep(i) {
+    document.querySelectorAll('.step-item').forEach((el, idx) => {
+      if (idx < i) el.className = 'step-item done';
+      else if (idx === i) el.className = 'step-item active';
+      else el.className = 'step-item';
+    });
+    const pct = (elapsed / totalDur) * 100;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    showMsg('msg-gravacao', steps[i].texto, 'info');
+  }
+
+  activateStep(0);
+
+  function nextStep() {
+    elapsed += steps[stepIdx].dur;
+    stepIdx++;
+    if (stepIdx < steps.length) {
+      activateStep(stepIdx);
+      stepInterval = setTimeout(nextStep, steps[stepIdx].dur);
+    } else {
+      document.getElementById('progress-bar').style.width = '100%';
+      clearInterval(timerInterval);
+      document.getElementById('rec-ind').classList.remove('active');
+      mediaRecorder.stop();
+    }
+  }
+
+  stepInterval = setTimeout(nextStep, steps[0].dur);
+}
+
+function finalizarGravacao() {
+  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+  document.getElementById('card-gravacao').classList.add('hidden');
+  document.getElementById('card-upload').classList.remove('hidden');
+}
+
+async function enviarVideo() {
+  if (!gravacaoBlob) return;
+
+  document.getElementById('btn-enviar').disabled = true;
+  document.getElementById('btn-enviar').textContent = '⏳ A enviar...';
+  document.getElementById('upload-section').classList.add('show');
+  hideMsg('msg-upload');
+
+  const filename = `${clienteId}_${Date.now()}.webm`;
+  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/Videos/${filename}`;
+
+  try {
+    // XMLHttpRequest para mostrar progresso
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadUrl);
+      xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+      xhr.setRequestHeader('Content-Type', 'video/webm');
+      xhr.setRequestHeader('x-upsert', 'true');
+
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          document.getElementById('upload-bar').style.width = pct + '%';
+          document.getElementById('upload-pct').textContent = pct + '%';
+          document.getElementById('upload-label').textContent = pct < 100 ? 'A enviar...' : 'A processar...';
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error('Erro HTTP ' + xhr.status + ': ' + xhr.responseText));
+      };
+      xhr.onerror = () => reject(new Error('Erro de rede'));
+      xhr.send(gravacaoBlob);
+    });
+
+    // Registar no Supabase DB (tabela clientes)
+    await registarCliente(filename);
+
+    document.getElementById('card-upload').classList.add('hidden');
+    document.getElementById('card-done').classList.remove('hidden');
+    document.getElementById('done-id').textContent = `ID: ${clienteId} • Ficheiro: ${filename}`;
+
+  } catch (err) {
+    showMsg('msg-upload', 'Erro ao enviar: ' + err.message, 'error');
+    document.getElementById('btn-enviar').disabled = false;
+    document.getElementById('btn-enviar').textContent = '☁ Tentar novamente';
+  }
+}
+
+async function registarCliente(filename) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        codigo: clienteId,
+        video_file: filename,
+        status: 'video_recebido',
+        data_upload: new Date().toISOString()
+      })
+    });
+  } catch(e) {
+    // Silencioso — upload já foi feito, registo DB é secundário
+    console.warn('Registo DB falhou:', e);
+  }
+}
+
+// Auto-preencher ID se vier na URL
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (id) {
+    document.getElementById('cliente-id').value = id.toUpperCase();
+  }
+});
+</script>
+</body>
+</html>
