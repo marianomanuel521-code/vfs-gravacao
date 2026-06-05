@@ -819,34 +819,14 @@ function mostrarDirecao(dir) {
   const faceGuide = document.getElementById('face-guide');
   const instrucao = document.getElementById('center-instruction');
 
-  // Activar seta correcta
+  // Oval SEMPRE fixo no centro — nunca se move
+  faceGuide.style.transform = 'translate(-50%, -52%)';
+  faceGuide.classList.add('active');
+
+  // Só mostrar seta da direção correcta
   if (dir && dir !== 'frente' && dir !== 'sorriso') {
     const el = document.getElementById('dir-' + dir);
     if (el) el.classList.add('show');
-  }
-
-  // Animação do oval consoante a direcção
-  faceGuide.classList.add('active');
-  if (dir === 'frente') {
-    faceGuide.style.transform = 'translate(-50%, -52%)';
-  } else if (dir === 'sorriso') {
-    faceGuide.style.transform = 'translate(-50%, -52%)';
-  } else if (dir === 'left') {
-    faceGuide.style.transform = 'translate(-65%, -52%)';
-  } else if (dir === 'right') {
-    faceGuide.style.transform = 'translate(-35%, -52%)';
-  } else if (dir === 'top') {
-    faceGuide.style.transform = 'translate(-50%, -65%)';
-  } else if (dir === 'bottom') {
-    faceGuide.style.transform = 'translate(-50%, -38%)';
-  } else if (dir === 'top-left') {
-    faceGuide.style.transform = 'translate(-65%, -65%)';
-  } else if (dir === 'top-right') {
-    faceGuide.style.transform = 'translate(-35%, -65%)';
-  } else if (dir === 'bottom-left') {
-    faceGuide.style.transform = 'translate(-65%, -38%)';
-  } else if (dir === 'bottom-right') {
-    faceGuide.style.transform = 'translate(-35%, -38%)';
   }
 
   // Mostrar instrução
@@ -997,17 +977,21 @@ function finalizarGravacao() {
 }
 
 async function enviarTudo() {
-  const passFilename = `${clienteId}_passaporte_${Date.now()}.${passaporteExt}`;
-  const videoFilename = `${clienteId}_video_${Date.now()}.webm`;
+  // Limpar nome do ficheiro — sem caracteres especiais
+  const ts = Date.now();
+  const passFilename = `${clienteId}_passaporte_${ts}.${passaporteExt}`;
+  const videoFilename = `${clienteId}_video_${ts}.webm`;
 
   try {
     // 1. Enviar passaporte
+    document.getElementById('upload-label-p').textContent = 'A enviar...';
     await uploadFicheiro(
       passaporteBlob, passFilename,
       passaporteBlob.type || 'image/jpeg',
       'upload-bar-p', 'upload-pct-p', 'upload-label-p'
     );
     document.getElementById('upload-label-p').textContent = '✓ Enviado!';
+    document.getElementById('upload-bar-p').style.background = '#10b981';
 
     // 2. Enviar vídeo
     document.getElementById('upload-label-v').textContent = 'A enviar...';
@@ -1017,6 +1001,7 @@ async function enviarTudo() {
       'upload-bar-v', 'upload-pct-v', 'upload-label-v'
     );
     document.getElementById('upload-label-v').textContent = '✓ Enviado!';
+    document.getElementById('upload-bar-v').style.background = '#10b981';
 
     // 3. Registar no DB
     await registarCliente(videoFilename, passFilename);
@@ -1034,11 +1019,14 @@ async function enviarTudo() {
 
 function uploadFicheiro(blob, filename, contentType, barId, pctId, labelId) {
   return new Promise((resolve, reject) => {
+    // Usar PUT com upsert para compatibilidade total com Supabase Storage
+    const url = `${SUPABASE_URL}/storage/v1/object/Videos/${filename}`;
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/Videos/${filename}`);
+    xhr.open('PUT', url);
     xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.setRequestHeader('x-upsert', 'true');
+    xhr.setRequestHeader('apikey', SUPABASE_KEY);
 
     xhr.upload.onprogress = e => {
       if (e.lengthComputable) {
@@ -1047,7 +1035,13 @@ function uploadFicheiro(blob, filename, contentType, barId, pctId, labelId) {
         document.getElementById(pctId).textContent = pct + '%';
       }
     };
-    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('HTTP ' + xhr.status));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error('HTTP ' + xhr.status + ' — ' + xhr.responseText.substring(0, 100)));
+      }
+    };
     xhr.onerror = () => reject(new Error('Erro de rede'));
     xhr.send(blob);
   });
