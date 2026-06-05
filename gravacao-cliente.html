@@ -184,17 +184,94 @@
   .face-guide {
     position: absolute;
     top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 55%; aspect-ratio: 3/4;
-    border: 2px dashed rgba(59,130,246,0.6);
+    transform: translate(-50%, -52%);
+    width: 52%; aspect-ratio: 3/4;
+    border: 2px solid rgba(59,130,246,0.7);
     border-radius: 50%;
-    animation: pulse-border 2s ease-in-out infinite;
+    transition: border-color 0.4s, transform 0.5s;
+    box-shadow: 0 0 0 1px rgba(59,130,246,0.2), inset 0 0 20px rgba(59,130,246,0.05);
+  }
+
+  .face-guide.active {
+    border-color: rgba(6,182,212,0.95);
+    box-shadow: 0 0 0 2px rgba(6,182,212,0.3), inset 0 0 20px rgba(6,182,212,0.1);
+    animation: pulse-border 1.5s ease-in-out infinite;
   }
 
   @keyframes pulse-border {
-    0%, 100% { border-color: rgba(59,130,246,0.6); }
-    50% { border-color: rgba(6,182,212,0.9); }
+    0%, 100% { box-shadow: 0 0 0 2px rgba(6,182,212,0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(6,182,212,0.1); }
   }
+
+  /* Seta de direção */
+  .dir-arrow {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.4s, transform 0.4s;
+    pointer-events: none;
+  }
+
+  .dir-arrow.show { opacity: 1; }
+
+  .dir-arrow .arrow-icon {
+    font-size: 28px;
+    filter: drop-shadow(0 0 6px rgba(6,182,212,0.8));
+    animation: arrow-pulse 0.8s ease-in-out infinite alternate;
+  }
+
+  .dir-arrow .arrow-label {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #06b6d4;
+    text-shadow: 0 0 8px rgba(6,182,212,0.9);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  @keyframes arrow-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.2); }
+  }
+
+  /* Posições das setas */
+  .dir-top    { top: 6%; left: 50%; transform: translateX(-50%); }
+  .dir-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); }
+  .dir-left   { left: 4%; top: 50%; transform: translateY(-50%); }
+  .dir-right  { right: 4%; top: 50%; transform: translateY(-50%); }
+  .dir-top-left     { top: 6%; left: 4%; }
+  .dir-top-right    { top: 6%; right: 4%; }
+  .dir-bottom-left  { bottom: 6%; left: 4%; }
+  .dir-bottom-right { bottom: 6%; right: 4%; }
+
+  /* Instrução central */
+  .center-instruction {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(6,182,212,0.4);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2f8ff;
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-align: center;
+    max-width: 90%;
+  }
+
+  .center-instruction.show { opacity: 1; }
 
   .rec-indicator {
     position: absolute;
@@ -406,7 +483,45 @@
   <div class="camera-wrap">
     <video id="video" autoplay muted playsinline></video>
     <div class="camera-overlay">
-      <div class="face-guide"></div>
+      <div class="face-guide" id="face-guide"></div>
+
+      <!-- Setas de direção -->
+      <div class="dir-arrow dir-top" id="dir-top">
+        <div class="arrow-icon">↑</div>
+        <div class="arrow-label">Cima</div>
+      </div>
+      <div class="dir-arrow dir-bottom" id="dir-bottom">
+        <div class="arrow-label">Baixo</div>
+        <div class="arrow-icon">↓</div>
+      </div>
+      <div class="dir-arrow dir-left" id="dir-left">
+        <div class="arrow-icon">←</div>
+        <div class="arrow-label">Esq</div>
+      </div>
+      <div class="dir-arrow dir-right" id="dir-right">
+        <div class="arrow-icon">→</div>
+        <div class="arrow-label">Dir</div>
+      </div>
+      <div class="dir-arrow dir-top-left" id="dir-top-left">
+        <div class="arrow-icon">↖</div>
+        <div class="arrow-label">↖</div>
+      </div>
+      <div class="dir-arrow dir-top-right" id="dir-top-right">
+        <div class="arrow-icon">↗</div>
+        <div class="arrow-label">↗</div>
+      </div>
+      <div class="dir-arrow dir-bottom-left" id="dir-bottom-left">
+        <div class="arrow-label">↙</div>
+        <div class="arrow-icon">↙</div>
+      </div>
+      <div class="dir-arrow dir-bottom-right" id="dir-bottom-right">
+        <div class="arrow-label">↘</div>
+        <div class="arrow-icon">↘</div>
+      </div>
+
+      <!-- Instrução central -->
+      <div class="center-instruction" id="center-instruction"></div>
+
       <div class="rec-indicator" id="rec-ind">
         <div class="rec-dot"></div>
         <span>REC</span>
@@ -533,17 +648,68 @@ let stepInterval = null;
 let segundos = 0;
 
 const steps = [
-  { texto: '👁 Frente — fique parado, olhe para a câmara', dur: 5000 },
-  { texto: '😊 Sorriso natural — frente', dur: 4000 },
-  { texto: '← Vire para a ESQUERDA devagar', dur: 3000 },
-  { texto: '→ Vire para a DIREITA devagar', dur: 3000 },
-  { texto: '↑ Cabeça para CIMA', dur: 3000 },
-  { texto: '↓ Cabeça para BAIXO', dur: 3000 },
-  { texto: '↖ Diagonal CIMA-ESQUERDA', dur: 3000 },
-  { texto: '↗ Diagonal CIMA-DIREITA', dur: 3000 },
-  { texto: '↙ Diagonal BAIXO-ESQUERDA', dur: 3000 },
-  { texto: '↘ Diagonal BAIXO-DIREITA', dur: 3000 },
+  { texto: '👁 Frente — fique parado, olhe para a câmara', dur: 5000, dir: 'frente',       instrucao: 'Olhe em frente, fique parado' },
+  { texto: '😊 Sorriso natural — frente',                  dur: 4000, dir: 'sorriso',      instrucao: 'Sorria naturalmente' },
+  { texto: '← Vire para a ESQUERDA devagar',               dur: 3000, dir: 'left',         instrucao: 'Vire para a esquerda' },
+  { texto: '→ Vire para a DIREITA devagar',                dur: 3000, dir: 'right',        instrucao: 'Vire para a direita' },
+  { texto: '↑ Cabeça para CIMA',                          dur: 3000, dir: 'top',          instrucao: 'Levante a cabeça para cima' },
+  { texto: '↓ Cabeça para BAIXO',                         dur: 3000, dir: 'bottom',       instrucao: 'Incline a cabeça para baixo' },
+  { texto: '↖ Diagonal CIMA-ESQUERDA',                    dur: 3000, dir: 'top-left',     instrucao: 'Diagonal: cima e esquerda' },
+  { texto: '↗ Diagonal CIMA-DIREITA',                     dur: 3000, dir: 'top-right',    instrucao: 'Diagonal: cima e direita' },
+  { texto: '↙ Diagonal BAIXO-ESQUERDA',                   dur: 3000, dir: 'bottom-left',  instrucao: 'Diagonal: baixo e esquerda' },
+  { texto: '↘ Diagonal BAIXO-DIREITA',                    dur: 3000, dir: 'bottom-right', instrucao: 'Diagonal: baixo e direita' },
 ];
+
+// Todas as setas disponíveis
+const allDirs = ['top','bottom','left','right','top-left','top-right','bottom-left','bottom-right'];
+
+function mostrarDirecao(dir) {
+  // Esconder todas as setas
+  allDirs.forEach(d => {
+    const el = document.getElementById('dir-' + d);
+    if (el) el.classList.remove('show');
+  });
+
+  const faceGuide = document.getElementById('face-guide');
+  const instrucao = document.getElementById('center-instruction');
+
+  // Activar seta correcta
+  if (dir && dir !== 'frente' && dir !== 'sorriso') {
+    const el = document.getElementById('dir-' + dir);
+    if (el) el.classList.add('show');
+  }
+
+  // Animação do oval consoante a direcção
+  faceGuide.classList.add('active');
+  if (dir === 'frente') {
+    faceGuide.style.transform = 'translate(-50%, -52%)';
+  } else if (dir === 'sorriso') {
+    faceGuide.style.transform = 'translate(-50%, -52%)';
+  } else if (dir === 'left') {
+    faceGuide.style.transform = 'translate(-65%, -52%)';
+  } else if (dir === 'right') {
+    faceGuide.style.transform = 'translate(-35%, -52%)';
+  } else if (dir === 'top') {
+    faceGuide.style.transform = 'translate(-50%, -65%)';
+  } else if (dir === 'bottom') {
+    faceGuide.style.transform = 'translate(-50%, -38%)';
+  } else if (dir === 'top-left') {
+    faceGuide.style.transform = 'translate(-65%, -65%)';
+  } else if (dir === 'top-right') {
+    faceGuide.style.transform = 'translate(-35%, -65%)';
+  } else if (dir === 'bottom-left') {
+    faceGuide.style.transform = 'translate(-65%, -38%)';
+  } else if (dir === 'bottom-right') {
+    faceGuide.style.transform = 'translate(-35%, -38%)';
+  }
+
+  // Mostrar instrução
+  const step = steps.find(s => s.dir === dir);
+  if (step && instrucao) {
+    instrucao.textContent = step.instrucao;
+    instrucao.classList.add('show');
+  }
+}
 const totalDur = steps.reduce((a, s) => a + s.dur, 0);
 
 function showMsg(id, msg, tipo) {
@@ -619,6 +785,7 @@ function iniciarGravacao() {
     const pct = (elapsed / totalDur) * 100;
     document.getElementById('progress-bar').style.width = pct + '%';
     showMsg('msg-gravacao', steps[i].texto, 'info');
+    mostrarDirecao(steps[i].dir);
   }
 
   activateStep(0);
