@@ -180,7 +180,7 @@
     pointer-events: none;
   }
 
-  /* Face guide oval */
+  /* Face guide oval — FIXO, nunca se move */
   .face-guide {
     position: absolute;
     top: 50%; left: 50%;
@@ -188,7 +188,6 @@
     width: 52%; aspect-ratio: 3/4;
     border: 2px solid rgba(59,130,246,0.7);
     border-radius: 50%;
-    transition: border-color 0.4s, transform 0.5s;
     box-shadow: 0 0 0 1px rgba(59,130,246,0.2), inset 0 0 20px rgba(59,130,246,0.05);
   }
 
@@ -212,16 +211,17 @@
     justify-content: center;
     gap: 4px;
     opacity: 0;
-    transition: opacity 0.4s, transform 0.4s;
     pointer-events: none;
+    transition: opacity 0.3s;
   }
 
   .dir-arrow.show { opacity: 1; }
 
   .dir-arrow .arrow-icon {
-    font-size: 28px;
-    filter: drop-shadow(0 0 6px rgba(6,182,212,0.8));
-    animation: arrow-pulse 0.8s ease-in-out infinite alternate;
+    font-size: 32px;
+    filter: drop-shadow(0 0 8px rgba(6,182,212,1));
+    animation: arrow-pulse 0.7s ease-in-out infinite alternate;
+    display: block;
   }
 
   .dir-arrow .arrow-label {
@@ -232,43 +232,44 @@
     text-shadow: 0 0 8px rgba(6,182,212,0.9);
     letter-spacing: 1px;
     text-transform: uppercase;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.7);
     padding: 2px 8px;
     border-radius: 4px;
   }
 
   @keyframes arrow-pulse {
     from { transform: scale(1); }
-    to { transform: scale(1.2); }
+    to { transform: scale(1.25); }
   }
 
-  /* Posições das setas */
-  .dir-top    { top: 6%; left: 50%; transform: translateX(-50%); }
-  .dir-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); }
-  .dir-left   { left: 4%; top: 50%; transform: translateY(-50%); }
-  .dir-right  { right: 4%; top: 50%; transform: translateY(-50%); }
-  .dir-top-left     { top: 6%; left: 4%; }
-  .dir-top-right    { top: 6%; right: 4%; }
-  .dir-bottom-left  { bottom: 6%; left: 4%; }
-  .dir-bottom-right { bottom: 6%; right: 4%; }
+  /* Posições fixas das setas — nunca mudam */
+  .dir-top    { top: 5%; left: 50%; transform: translateX(-50%); }
+  .dir-bottom { bottom: 18%; left: 50%; transform: translateX(-50%); }
+  .dir-left   { left: 3%; top: 45%; transform: translateY(-50%); }
+  .dir-right  { right: 3%; top: 45%; transform: translateY(-50%); }
+  .dir-top-left     { top: 5%; left: 3%; }
+  .dir-top-right    { top: 5%; right: 3%; }
+  .dir-bottom-left  { bottom: 18%; left: 3%; }
+  .dir-bottom-right { bottom: 18%; right: 3%; }
 
-  /* Instrução central */
+  /* Instrução central em baixo */
   .center-instruction {
     position: absolute;
-    bottom: 10%;
+    bottom: 8%;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.75);
-    border: 1px solid rgba(6,182,212,0.4);
+    background: rgba(0,0,0,0.82);
+    border: 1px solid rgba(6,182,212,0.5);
     border-radius: 20px;
-    padding: 6px 16px;
-    font-size: 12px;
-    font-weight: 600;
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 700;
     color: #e2f8ff;
     opacity: 0;
     transition: opacity 0.3s;
     text-align: center;
-    max-width: 90%;
+    max-width: 92%;
+    white-space: nowrap;
   }
 
   .center-instruction.show { opacity: 1; }
@@ -576,10 +577,19 @@
   </p>
 
   <div class="passport-drop" id="passport-drop">
-    <input type="file" id="passport-file" accept="image/*" capture="environment" onchange="passaporteSeleccionado(this)">
+    <input type="file" id="passport-file-galeria" accept="image/*" style="display:none" onchange="passaporteSeleccionado(this)">
+    <input type="file" id="passport-file-camera" accept="image/*" capture="environment" style="display:none" onchange="passaporteSeleccionado(this)">
     <div class="passport-icon">🛂</div>
-    <div class="passport-drop-label">
-      Toque para <span>tirar foto</span> ou escolher da galeria
+    <div class="passport-drop-label" style="margin-bottom:14px;">
+      Escolha como quer adicionar a foto do passaporte
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="document.getElementById('passport-file-camera').click()" class="btn btn-primary" style="flex:1;padding:10px;">
+        📷 Câmara
+      </button>
+      <button onclick="document.getElementById('passport-file-galeria').click()" class="btn btn-ghost" style="flex:1;padding:10px;border:1px solid var(--border);color:var(--text);border-radius:10px;">
+        🖼️ Galeria
+      </button>
     </div>
   </div>
 
