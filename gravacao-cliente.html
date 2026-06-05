@@ -453,6 +453,87 @@
     text-align: center;
     margin-top: 10px;
   }
+
+  /* Passport upload */
+  .passport-drop {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .passport-drop:hover, .passport-drop.drag-over {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.06);
+  }
+
+  .passport-drop input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .passport-icon { font-size: 36px; margin-bottom: 8px; }
+  .passport-drop-label { font-size: 13px; color: var(--muted); }
+  .passport-drop-label span { color: var(--accent); font-weight: 600; }
+
+  .passport-preview {
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 12px;
+    display: none;
+    max-height: 180px;
+    object-fit: cover;
+  }
+
+  .passport-preview.show { display: block; }
+
+  /* Steps indicator topo */
+  .steps-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 24px;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .step-dot {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    transition: all 0.3s;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-dot.active { background: var(--accent); color: white; }
+  .step-dot.done { background: var(--success); color: white; }
+
+  .step-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .step-line.done { background: var(--success); }
 </style>
 </head>
 <body>
@@ -460,7 +541,18 @@
 <div class="header">
   <div class="logo">VFS Manager</div>
   <h1>Gravação Facial</h1>
-  <p class="subtitle">Siga as instruções para gravar o seu vídeo</p>
+  <p class="subtitle">Siga as instruções para concluir o seu registo</p>
+</div>
+
+<!-- Indicador de passos -->
+<div class="steps-indicator" id="steps-indicator" style="display:none;">
+  <div class="step-dot active" id="sdot-0">1</div>
+  <div class="step-line" id="sline-0"></div>
+  <div class="step-dot" id="sdot-1">2</div>
+  <div class="step-line" id="sline-1"></div>
+  <div class="step-dot" id="sdot-2">3</div>
+  <div class="step-line" id="sline-2"></div>
+  <div class="step-dot" id="sdot-3">✓</div>
 </div>
 
 <!-- PASSO 0: Inserir ID -->
@@ -474,6 +566,31 @@
     <button class="btn btn-primary" onclick="iniciarSessao()">Entrar</button>
   </div>
   <div class="status-msg" id="msg-id"></div>
+</div>
+
+<!-- PASSO 1: Foto Passaporte -->
+<div class="card hidden" id="card-passaporte">
+  <div class="card-title">Foto do Passaporte</div>
+  <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+    Tire uma foto à página de dados do seu passaporte (página com a sua foto)
+  </p>
+
+  <div class="passport-drop" id="passport-drop">
+    <input type="file" id="passport-file" accept="image/*" capture="environment" onchange="passaporteSeleccionado(this)">
+    <div class="passport-icon">🛂</div>
+    <div class="passport-drop-label">
+      Toque para <span>tirar foto</span> ou escolher da galeria
+    </div>
+  </div>
+
+  <img id="passport-preview" class="passport-preview" alt="Preview passaporte">
+
+  <div class="status-msg" id="msg-passaporte"></div>
+
+  <button class="btn btn-primary hidden" id="btn-continuar-passaporte" onclick="continuarParaGravacao()"
+    style="width:100%;padding:14px;font-size:14px;margin-top:12px;border-radius:12px;">
+    Continuar → Gravação de Vídeo
+  </button>
 </div>
 
 <!-- PASSO 1: Câmara + Gravação -->
@@ -594,38 +711,50 @@
   </button>
 </div>
 
-<!-- PASSO 2: Upload -->
+<!-- PASSO 3: Upload -->
 <div class="card hidden" id="card-upload">
-  <div class="card-title">Envio do Vídeo</div>
+  <div class="card-title">Envio dos Ficheiros</div>
 
   <div class="status-msg show info" id="msg-upload-info">
-    A gravação foi concluída com sucesso. Prima o botão para enviar.
+    Gravação concluída! A enviar passaporte e vídeo...
   </div>
 
-  <div class="upload-section" id="upload-section">
-    <div class="upload-info">
-      <span id="upload-label">A enviar...</span>
-      <span id="upload-pct">0%</span>
+  <div style="margin-bottom:10px;">
+    <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;">FOTO PASSAPORTE</div>
+    <div class="upload-section show" id="upload-section-passaporte">
+      <div class="upload-info">
+        <span id="upload-label-p">A enviar...</span>
+        <span id="upload-pct-p">0%</span>
+      </div>
+      <div class="upload-bar-wrap">
+        <div class="upload-bar" id="upload-bar-p"></div>
+      </div>
     </div>
-    <div class="upload-bar-wrap">
-      <div class="upload-bar" id="upload-bar"></div>
+  </div>
+
+  <div>
+    <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;">VÍDEO FACIAL</div>
+    <div class="upload-section show" id="upload-section-video">
+      <div class="upload-info">
+        <span id="upload-label-v">A aguardar...</span>
+        <span id="upload-pct-v">0%</span>
+      </div>
+      <div class="upload-bar-wrap">
+        <div class="upload-bar" id="upload-bar-v"></div>
+      </div>
     </div>
   </div>
 
   <div class="status-msg" id="msg-upload"></div>
-
-  <button class="btn btn-success" id="btn-enviar" onclick="enviarVideo()">
-    ☁ Enviar Vídeo
-  </button>
 </div>
 
-<!-- PASSO 3: Concluído -->
+<!-- PASSO 4: Concluído -->
 <div class="card hidden" id="card-done">
   <div class="complete-icon">✅</div>
   <div style="text-align:center;">
-    <h2 style="font-size:18px; margin-bottom:8px;">Vídeo enviado!</h2>
+    <h2 style="font-size:18px; margin-bottom:8px;">Tudo enviado!</h2>
     <p style="font-size:13px; color:var(--muted);">
-      O técnico irá processar o seu agendamento em breve.
+      A sua foto e vídeo foram recebidos com sucesso.<br>O técnico irá processar o seu agendamento em breve.
     </p>
     <div class="id-badge" id="done-id"></div>
     <p style="font-size:12px; color:var(--muted); margin-top:16px;">
@@ -643,9 +772,26 @@ let mediaStream = null;
 let mediaRecorder = null;
 let chunks = [];
 let gravacaoBlob = null;
+let passaporteBlob = null;
+let passaporteExt = 'jpg';
 let timerInterval = null;
-let stepInterval = null;
 let segundos = 0;
+
+// ── Indicador de passos ───────────────────────────────────────
+function setStepIndicator(step) {
+  // step: 0=passaporte, 1=gravação, 2=upload, 3=done
+  for (let i = 0; i <= 3; i++) {
+    const dot = document.getElementById('sdot-' + i);
+    if (!dot) continue;
+    if (i < step) { dot.className = 'step-dot done'; dot.textContent = '✓'; }
+    else if (i === step) { dot.className = 'step-dot active'; dot.textContent = i === 3 ? '✓' : i + 1; }
+    else { dot.className = 'step-dot'; dot.textContent = i === 3 ? '✓' : i + 1; }
+  }
+  for (let i = 0; i <= 2; i++) {
+    const line = document.getElementById('sline-' + i);
+    if (line) line.className = 'step-line' + (i < step ? ' done' : '');
+  }
+}
 
 const steps = [
   { texto: '👁 Frente — fique parado, olhe para a câmara', dur: 5000, dir: 'frente',       instrucao: 'Olhe em frente, fique parado' },
@@ -714,12 +860,14 @@ const totalDur = steps.reduce((a, s) => a + s.dur, 0);
 
 function showMsg(id, msg, tipo) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.textContent = msg;
   el.className = `status-msg show ${tipo}`;
 }
 
 function hideMsg(id) {
-  document.getElementById(id).className = 'status-msg';
+  const el = document.getElementById(id);
+  if (el) el.className = 'status-msg';
 }
 
 function iniciarSessao() {
@@ -728,9 +876,40 @@ function iniciarSessao() {
   clienteId = val;
 
   document.getElementById('card-id').classList.add('hidden');
-  document.getElementById('card-gravacao').classList.remove('hidden');
+  document.getElementById('steps-indicator').style.display = 'flex';
+  document.getElementById('card-passaporte').classList.remove('hidden');
+  setStepIndicator(0);
+}
 
-  // Pedir acesso à câmara
+// ── Passaporte ────────────────────────────────────────────────
+function passaporteSeleccionado(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  passaporteExt = file.name.split('.').pop() || 'jpg';
+  passaporteBlob = file;
+
+  // Preview
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('passport-preview');
+    preview.src = e.target.result;
+    preview.classList.add('show');
+  };
+  reader.readAsDataURL(file);
+
+  showMsg('msg-passaporte', '✓ Foto seleccionada! Clique em Continuar.', 'success');
+  document.getElementById('btn-continuar-passaporte').classList.remove('hidden');
+}
+
+function continuarParaGravacao() {
+  if (!passaporteBlob) { showMsg('msg-passaporte', 'Por favor adicione a foto do passaporte.', 'error'); return; }
+
+  document.getElementById('card-passaporte').classList.add('hidden');
+  document.getElementById('card-gravacao').classList.remove('hidden');
+  setStepIndicator(1);
+
+  // Pedir câmara
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
     .then(stream => {
       mediaStream = stream;
@@ -738,8 +917,9 @@ function iniciarSessao() {
     })
     .catch(err => {
       document.getElementById('card-gravacao').classList.add('hidden');
-      document.getElementById('card-id').classList.remove('hidden');
-      showMsg('msg-id', 'Erro ao aceder à câmara: ' + err.message, 'error');
+      document.getElementById('card-passaporte').classList.remove('hidden');
+      setStepIndicator(0);
+      showMsg('msg-passaporte', 'Erro ao aceder à câmara: ' + err.message, 'error');
     });
 }
 
@@ -811,60 +991,69 @@ function finalizarGravacao() {
   if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
   document.getElementById('card-gravacao').classList.add('hidden');
   document.getElementById('card-upload').classList.remove('hidden');
+  setStepIndicator(2);
+  // Upload automático sem botão
+  enviarTudo();
 }
 
-async function enviarVideo() {
-  if (!gravacaoBlob) return;
-
-  document.getElementById('btn-enviar').disabled = true;
-  document.getElementById('btn-enviar').textContent = '⏳ A enviar...';
-  document.getElementById('upload-section').classList.add('show');
-  hideMsg('msg-upload');
-
-  const filename = `${clienteId}_${Date.now()}.webm`;
-  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/Videos/${filename}`;
+async function enviarTudo() {
+  const passFilename = `${clienteId}_passaporte_${Date.now()}.${passaporteExt}`;
+  const videoFilename = `${clienteId}_video_${Date.now()}.webm`;
 
   try {
-    // XMLHttpRequest para mostrar progresso
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', uploadUrl);
-      xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
-      xhr.setRequestHeader('Content-Type', 'video/webm');
-      xhr.setRequestHeader('x-upsert', 'true');
+    // 1. Enviar passaporte
+    await uploadFicheiro(
+      passaporteBlob, passFilename,
+      passaporteBlob.type || 'image/jpeg',
+      'upload-bar-p', 'upload-pct-p', 'upload-label-p'
+    );
+    document.getElementById('upload-label-p').textContent = '✓ Enviado!';
 
-      xhr.upload.onprogress = e => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          document.getElementById('upload-bar').style.width = pct + '%';
-          document.getElementById('upload-pct').textContent = pct + '%';
-          document.getElementById('upload-label').textContent = pct < 100 ? 'A enviar...' : 'A processar...';
-        }
-      };
+    // 2. Enviar vídeo
+    document.getElementById('upload-label-v').textContent = 'A enviar...';
+    await uploadFicheiro(
+      gravacaoBlob, videoFilename,
+      'video/webm',
+      'upload-bar-v', 'upload-pct-v', 'upload-label-v'
+    );
+    document.getElementById('upload-label-v').textContent = '✓ Enviado!';
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error('Erro HTTP ' + xhr.status + ': ' + xhr.responseText));
-      };
-      xhr.onerror = () => reject(new Error('Erro de rede'));
-      xhr.send(gravacaoBlob);
-    });
+    // 3. Registar no DB
+    await registarCliente(videoFilename, passFilename);
 
-    // Registar no Supabase DB (tabela clientes)
-    await registarCliente(filename);
-
+    // 4. Concluído
+    setStepIndicator(3);
     document.getElementById('card-upload').classList.add('hidden');
     document.getElementById('card-done').classList.remove('hidden');
-    document.getElementById('done-id').textContent = `ID: ${clienteId} • Ficheiro: ${filename}`;
+    document.getElementById('done-id').textContent = `Código: ${clienteId}`;
 
   } catch (err) {
     showMsg('msg-upload', 'Erro ao enviar: ' + err.message, 'error');
-    document.getElementById('btn-enviar').disabled = false;
-    document.getElementById('btn-enviar').textContent = '☁ Tentar novamente';
   }
 }
 
-async function registarCliente(filename) {
+function uploadFicheiro(blob, filename, contentType, barId, pctId, labelId) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/Videos/${filename}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('x-upsert', 'true');
+
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        document.getElementById(barId).style.width = pct + '%';
+        document.getElementById(pctId).textContent = pct + '%';
+      }
+    };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('HTTP ' + xhr.status));
+    xhr.onerror = () => reject(new Error('Erro de rede'));
+    xhr.send(blob);
+  });
+}
+
+async function registarCliente(videoFile, passaporteFile) {
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
       method: 'POST',
@@ -876,13 +1065,13 @@ async function registarCliente(filename) {
       },
       body: JSON.stringify({
         codigo: clienteId,
-        video_file: filename,
+        video_file: videoFile,
+        passaporte_file: passaporteFile,
         status: 'video_recebido',
         data_upload: new Date().toISOString()
       })
     });
   } catch(e) {
-    // Silencioso — upload já foi feito, registo DB é secundário
     console.warn('Registo DB falhou:', e);
   }
 }
